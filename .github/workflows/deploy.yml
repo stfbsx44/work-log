@@ -7,6 +7,11 @@ permissions:
   contents: read
   pages: write
   id-token: write
+# Public frontend configuration; these values do not grant administrator access.
+# Repository variables can override them when moving to another project.
+env:
+  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://ftpfnbhpokuhuqtrhcjt.supabase.co' }}
+  VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_UZyHldGgBdSs3n4Do3B1Xg_ztthcStT' }}
 concurrency:
   group: github-pages
   cancel-in-progress: false
@@ -23,17 +28,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Verify configuration
-        env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: |
-          node --input-type=module -e "const u=process.env.VITE_SUPABASE_URL; const k=process.env.VITE_SUPABASE_PUBLISHABLE_KEY; if(!u || !k || k.startsWith('sb_secret_')) throw new Error('Configure public Supabase variables before publishing');"
+      - name: Check live database setup
+        run: npm run check:backend
       - run: npm test
       - run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -55,11 +55,11 @@ on conflict (singleton) do update set user_id = excluded.user_id;
 ## 发布 GitHub Pages
 
 1. 在自己的账号下新建公开仓库 `work-log`，将本项目推送到 `main`。首次发布前先完成上面的数据库权限与账号配置。
-2. Repository Settings → Secrets and variables → Actions → Variables 中新增：
+2. 此仓库的发布流程已经填写你的 Project URL 和 Publishable key，这两项是可公开的网页配置。无需再次填写。如果以后更换项目，可在 Repository Settings → Secrets and variables → Actions → Variables 中覆盖：
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_PUBLISHABLE_KEY`
 3. Settings → Pages → Build and deployment → Source 选择 **GitHub Actions**。
-4. Actions 中运行 **Deploy work journal**，或推送 `main` 触发部署。
+4. Actions 中运行 **Deploy work journal**，或推送 `main` 触发部署。流程先通过只读请求检查真实数据库表和登录设置；没有执行初始化 SQL 或尚未关闭注册时，会明确报错并停止发布。
 5. 发布地址：`https://stfbsx44.github.io/work-log/`。工作流根据仓库名设置资源子路径，不使用需要服务器回退的页面路由。
 
 代码修改会重新构建网页；日常工作记录修改直接保存至 Supabase，不提交到 GitHub，不触发网站构建。免费服务的配额和暂停策略以各平台当前设置为准，本项目不自动开通付费服务。
@@ -69,6 +69,7 @@ on conflict (singleton) do update set user_id = excluded.user_id;
 ```sh
 npm test
 npm run build
+npm run check:backend
 npx playwright install chromium
 npm run test:e2e
 ```
