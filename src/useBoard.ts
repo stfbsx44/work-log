@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { friendlyError, listTasks, previewMode, removeTask, saveTask, supabase } from './api'
+import { friendlyError, listTasks, previewMode, removeTask, reorderTasks, saveTask, supabase } from './api'
 import { demoTasks } from './demo'
 import { sortTasks, type Task, type TaskInput } from './model'
 
 export function useBoard() {
-  const [tasks, setTasks] = useState<Task[]>(previewMode ? demoTasks : [])
+  const [tasks, setTasks] = useState<Task[]>(previewMode ? sortTasks(demoTasks) : [])
   const [session, setSession] = useState<Session | null>(null)
   const [isAdmin, setAdmin] = useState(false)
   const [loading, setLoading] = useState(!!supabase)
@@ -105,6 +105,14 @@ export function useBoard() {
       await removeTask(task); setTasks(current => current.filter(item => item.id !== task.id))
     }, '工作记录已删除')
   }
+  async function reorder(original: Task[], ordered: Task[]) {
+    if (original.every((task, index) => task.id === ordered[index]?.id)) return
+    await mutate(async () => {
+      const saved = await reorderTasks(original, ordered)
+      const ids = new Set(saved.map(task => task.id))
+      setTasks(current => sortTasks([...current.filter(task => !ids.has(task.id)), ...saved]))
+    }, '同级顺序已保存')
+  }
   async function login(email: string, password: string) {
     if (!supabase) throw new Error('在线登录尚未配置。')
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
@@ -122,5 +130,5 @@ export function useBoard() {
     if (error) { setNotice('退出未成功，请检查网络后重试。'); return }
     setAdmin(false); setNotice('已退出管理模式')
   }
-  return { tasks, session, isAdmin, loading, busy, loadError, notice, lastSync, refresh, save, remove, login, logout }
+  return { tasks, session, isAdmin, loading, busy, loadError, notice, lastSync, refresh, save, remove, reorder, login, logout }
 }

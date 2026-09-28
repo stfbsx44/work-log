@@ -6,7 +6,7 @@ const url = import.meta.env.VITE_SUPABASE_URL?.trim()
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim()
 export const supabase = isProjectUrl(url) && isPublicKey(key) ? createClient(url!, key!) : null
 export const previewMode = import.meta.env.DEV && !supabase
-const fields = 'id,title,description,status,priority,due_date,created_at,updated_at'
+const fields = 'id,title,description,status,priority,due_date,created_at,updated_at,sort_order'
 function client() {
   if (!supabase) throw new Error('在线数据尚未配置。')
   return supabase
@@ -37,9 +37,22 @@ export async function removeTask(task: Task) {
   if (error) throw error
   if (!data) throw new Error('这项工作已发生变化，或你的管理权限已失效。请刷新看板后重试。')
 }
+export async function reorderTasks(original: Task[], ordered: Task[]): Promise<Task[]> {
+  if (!original.length) throw new Error('这项工作已发生变化，请刷新看板后重试。')
+  const { data, error } = await client().rpc('reorder_work_items', {
+    p_status: original[0].status,
+    p_priority: original[0].priority,
+    p_expected: original.map(({ id, updated_at }) => ({ id, updated_at })),
+    p_ids: ordered.map(task => task.id),
+  })
+  if (error) throw error
+  if (!Array.isArray(data) || data.length !== original.length) throw new Error('这项工作的排序未能确认，请刷新看板后重试。')
+  return data as Task[]
+}
 export function friendlyError(error: unknown) {
   if (error instanceof Error && error.message.startsWith('这项工作')) return error.message
   const code = (error as { code?: string })?.code
+  if (code === '40001') return '这项工作或同级顺序已被更新，请刷新看板后重试。'
   if (code === '42501' || code === 'PGRST301' || code === 'PGRST303') return '当前没有修改权限，请重新登录管理员账号。'
   if (code === '23514') return '内容不符合要求，请检查标题、说明和选项。'
   return '操作未成功，请检查网络连接后重试。填写的内容仍然保留。'
