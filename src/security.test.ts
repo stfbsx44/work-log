@@ -18,6 +18,7 @@ beforeAll(async () => {
     grant execute on function auth.uid() to anon, authenticated;
   `)
   await db.exec(await readFile(new URL('../supabase/migrations/001_work_log.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/002_manual_order.sql', import.meta.url), 'utf8'))
 }, 30000)
 afterAll(async () => { await db?.close() })
 

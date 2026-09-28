@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { CalendarDays, Check, Circle, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, CalendarDays, Check, Circle, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { blankTask, dateLabel, priorityLabels, statuses, statusLabels, type Status, type Task, type TaskInput } from './model'
 
 export function Modal({ title, description, children, onClose, busy = false }: { title: string; description: string; children: ReactNode; onClose: () => void; busy?: boolean }) {
@@ -50,18 +50,22 @@ export function DeleteDialog({ task, onClose, onDelete, busy, isAdmin }: { task:
     {error && <p role="alert" className="form-error">{error}</p>}{!isAdmin && <p role="alert" className="form-error">管理权限已失效，请重新登录。</p>}
     <div className="form-actions"><button className="button secondary" onClick={onClose} disabled={busy}>取消</button><button className="button danger" onClick={() => void confirm()} disabled={busy || !isAdmin}>{busy ? '正在删除…' : '确认删除'}</button></div></Modal>
 }
-export function Card({ task, isAdmin, busy, onEdit, onDelete, onMove }: { task: Task; isAdmin: boolean; busy: boolean; onEdit: () => void; onDelete: () => void; onMove: (status: Status) => void }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({ id: task.id, disabled: !isAdmin || busy })
-  return <article ref={setNodeRef} className={`task-card ${isDragging ? 'dragging' : ''}`} style={transform ? { transform: `translate3d(${transform.x}px,${transform.y}px,0)` } : undefined} aria-label={task.title}>
-    <div className="card-top"><span className={`priority priority-${task.priority}`}>{priorityLabels[task.priority]}</span>{isAdmin ? <button ref={setActivatorNodeRef} {...attributes} {...listeners} className="icon-button drag-handle" aria-label={`拖动 ${task.title}`} disabled={busy}><GripVertical size={17} /></button> : task.status === 'completed' && <Check size={16} className="complete-mark" />}</div>
-    <h4>{task.title}</h4>{task.description && <p className="card-description">{task.description}</p>}<div className="card-meta"><CalendarDays size={14} />{task.due_date ? <time dateTime={task.due_date}>{dateLabel(task.due_date)}</time> : '未设置截止日期'}</div>
-    {isAdmin && <div className="card-actions"><select aria-label={`修改状态：${task.title}`} value={task.status} disabled={busy} onChange={e => onMove(e.target.value as Status)}>{statuses.map(status => <option key={status} value={status}>{statusLabels[status]}</option>)}</select><div><button className="icon-button" aria-label={`编辑 ${task.title}`} onClick={onEdit} disabled={busy}><Pencil size={15} /></button><button className="icon-button delete-button" aria-label={`删除 ${task.title}`} onClick={onDelete} disabled={busy}><Trash2 size={15} /></button></div></div>}
+export function Card({ task, isAdmin, busy, onEdit, onDelete, onMove, onReorder, canMoveUp, canMoveDown }: { task: Task; isAdmin: boolean; busy: boolean; onEdit: () => void; onDelete: () => void; onMove: (status: Status) => void; onReorder: (direction: -1 | 1) => void; canMoveUp: boolean; canMoveDown: boolean }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({ id: task.id, disabled: !isAdmin || busy })
+  const drop = useDroppable({ id: task.id, disabled: !isAdmin || busy || isDragging })
+  return <article ref={node => { setNodeRef(node); drop.setNodeRef(node) }} className={`task-card ${isDragging ? 'dragging' : ''} ${drop.isOver ? 'card-drop-target' : ''}`} aria-label={task.title}>
+    <div className="card-top"><span className={`priority priority-${task.priority}`}>{priorityLabels[task.priority]}</span><h4>{task.title}</h4>{isAdmin ? <button ref={setActivatorNodeRef} {...attributes} {...listeners} className="icon-button drag-handle" aria-label={`拖动 ${task.title}`} title="同级拖动排序，也可拖到另一列" disabled={busy}><GripVertical size={17} /></button> : task.status === 'completed' && <Check size={16} className="complete-mark" />}</div>
+    {task.description && <p className="card-description">{task.description}</p>}
+    <div className="card-footer"><div className="card-meta"><CalendarDays size={13} />{task.due_date ? <time dateTime={task.due_date} title={dateLabel(task.due_date)}>{task.due_date.replaceAll('-', '/')}</time> : '无截止日期'}</div>
+    {isAdmin && <div className="card-actions"><select aria-label={`修改状态：${task.title}`} value={task.status} disabled={busy} onChange={e => onMove(e.target.value as Status)}>{statuses.map(status => <option key={status} value={status}>{statusLabels[status]}</option>)}</select><div>
+      <button className="icon-button" aria-label={`同级上移 ${task.title}`} title="同级上移" onClick={() => onReorder(-1)} disabled={busy || !canMoveUp}><ArrowUp size={14} /></button><button className="icon-button" aria-label={`同级下移 ${task.title}`} title="同级下移" onClick={() => onReorder(1)} disabled={busy || !canMoveDown}><ArrowDown size={14} /></button>
+      <button className="icon-button" aria-label={`编辑 ${task.title}`} title="编辑" onClick={onEdit} disabled={busy}><Pencil size={14} /></button><button className="icon-button delete-button" aria-label={`删除 ${task.title}`} title="删除" onClick={onDelete} disabled={busy}><Trash2 size={14} /></button></div></div>}</div>
   </article>
 }
 export function Column({ status, index, count, isAdmin, busy, selected, onAdd, children }: { status: Status; index: number; count: number; isAdmin: boolean; busy: boolean; selected: boolean; onAdd: () => void; children: ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: status, disabled: !isAdmin || busy })
   return <section ref={setNodeRef} className={`column column-${status} ${selected ? 'mobile-selected' : ''} ${isOver ? 'drop-target' : ''}`} aria-label={statusLabels[status]}>
     <header className="column-header"><div><span className="status-icon">{status === 'completed' ? <Check size={16} /> : <Circle size={14} />}</span><h3>{statusLabels[status]}</h3><span className="count">{count}</span></div><span className="column-number">0{index + 1}</span></header>
-    <p className="column-description">{['为接下来的工作留一个位置', '专注当下，让计划逐步落地', '每一次完成，都值得记录'][index]}</p><div className="card-list">{children}</div>
-    {isAdmin && <button className="column-add" onClick={onAdd} disabled={busy}><Plus size={16} />添加工作</button>}</section>
+    <div className="column-scroll" tabIndex={0} role="group" aria-label={`${statusLabels[status]}工作列表`}><div className="card-list">{children}</div>
+    {isAdmin && <button className="column-add" onClick={onAdd} disabled={busy}><Plus size={16} />添加工作</button>}</div></section>
 }
